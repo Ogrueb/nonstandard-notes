@@ -13,6 +13,7 @@ import { WebApplication } from '@/Application/WebApplication'
 import { InputValue } from './InputValue'
 import BiometricsPrompt from './BiometricsPrompt'
 import U2FPrompt from './U2FPrompt'
+import { isAndroid } from '@standardnotes/ui-services'
 
 type Props = {
   application: WebApplication
@@ -144,13 +145,25 @@ const ChallengeModalPrompt: FunctionComponent<Props> = ({
           buttonRef={biometricsButtonRef}
         />
       ) : prompt.validation === ChallengeValidation.Authenticator ? (
-        <U2FPrompt
-          application={application}
-          onValueChange={onValueChange}
-          prompt={prompt}
-          buttonRef={authenticatorButtonRef}
-          contextData={contextData}
-        />
+        application.isNativeMobileWeb() && isAndroid() ? (
+          /**
+           * Offline build: security-key sign-in cannot work in this build on Android (the native
+           * FIDO2 path needs Standard Notes' own app signature, the web prompt needs
+           * app.standardnotes.com). Explain instead of showing a prompt that never completes.
+           */
+          <div className="min-w-76 max-w-76 text-sm">
+            Security-key sign-in is not available in this build. Cancel, then sign in with a recovery code instead
+            (Advanced options, Use recovery code).
+          </div>
+        ) : (
+          <U2FPrompt
+            application={application}
+            onValueChange={onValueChange}
+            prompt={prompt}
+            buttonRef={authenticatorButtonRef}
+            contextData={contextData}
+          />
+        )
       ) : prompt.secureTextEntry ? (
         <DecoratedPasswordInput
           ref={inputRef}

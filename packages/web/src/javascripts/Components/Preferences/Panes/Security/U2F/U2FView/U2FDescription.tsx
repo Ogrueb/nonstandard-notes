@@ -4,6 +4,7 @@ import { observer } from 'mobx-react-lite'
 import { Text } from '@/Components/Preferences/PreferencesComponents/Content'
 import { useApplication } from '@/Components/ApplicationProvider'
 import { c } from 'ttag'
+import { isAndroid } from '@standardnotes/ui-services'
 
 type Props = {
   is2FAEnabled: boolean
@@ -22,10 +23,17 @@ const U2FDescription: FunctionComponent<Props> = ({ is2FAEnabled }) => {
   return (
     <div>
       <Text>{c('B6.Preferences.Security.Info').t`Authenticate with a hardware security key such as YubiKey.`}</Text>
-      {!application.isFullU2FClient && (
-        <Text className="italic">{c('B6.Preferences.Security.Info')
-          .t`Please visit the web app in order to add a hardware security key.`}</Text>
-      )}
+      {!application.isFullU2FClient &&
+        (application.isNativeMobileWeb() && isAndroid() ? (
+          /** Offline build: security keys cannot be used to sign in from this build on Android */
+          <Text className="italic">
+            Security-key sign-in is not available in this build. An account with a registered key can only sign in here
+            with a recovery code.
+          </Text>
+        ) : (
+          <Text className="italic">{c('B6.Preferences.Security.Info')
+            .t`Please visit the web app in order to add a hardware security key.`}</Text>
+        ))}
       {!is2FAEnabled && (
         <Text className="italic">{c('B6.Preferences.Security.Info')
           .t`You must enable two-factor authentication before adding a hardware security key.`}</Text>
