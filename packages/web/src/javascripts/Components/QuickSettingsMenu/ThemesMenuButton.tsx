@@ -11,6 +11,11 @@ import { useKeyboardService } from '../KeyboardServiceProvider'
 import { TOGGLE_DARK_MODE_COMMAND } from '@standardnotes/ui-services'
 import { KeyboardShortcutIndicator } from '../KeyboardShortcutIndicator/KeyboardShortcutIndicator'
 import { useApplication } from '../ApplicationProvider'
+import { addToast, ToastType } from '@standardnotes/toast'
+
+/** Offline build: shown when a plugin theme is selected that has no stored copy and could not be downloaded. */
+const THEME_NOT_STORED_MESSAGE =
+  'This theme is not stored on this device yet, and it could not be downloaded. It needs an internet connection once.'
 
 type Props = {
   uiFeature: UIFeature<ThemeFeatureDescription>
@@ -42,7 +47,17 @@ const ThemesMenuButton: FunctionComponent<Props> = ({ uiFeature }) => {
     const themeIsLayerableOrNotActive = isThemeLayerable || !application.componentManager.isThemeActive(uiFeature)
 
     if (themeIsLayerableOrNotActive) {
+      const isActivating = !application.componentManager.isThemeActive(uiFeature)
       void application.componentManager.toggleTheme(uiFeature)
+
+      /** Offline build: a plugin theme applies from its stored copy; download it now if there is none. */
+      if (isActivating && uiFeature.isComponent) {
+        void application.componentManager.storeThemeForOfflineUse(uiFeature).then((stored) => {
+          if (!stored) {
+            addToast({ type: ToastType.Error, message: THEME_NOT_STORED_MESSAGE })
+          }
+        })
+      }
     }
   }, [application, canActivateTheme, uiFeature, premiumModal])
 

@@ -16,6 +16,8 @@ import {
   SNTag,
   DeletedItemInterface,
   EncryptedItemInterface,
+  MutationType,
+  DecryptedItemMutator,
 } from '@standardnotes/models'
 import {
   ComponentArea,
@@ -49,8 +51,22 @@ import {
   SyncServiceInterface,
   FeatureStatus,
   LocalPrefKey,
+  InternalEventHandlerInterface,
+  InternalEventInterface,
+  ApplicationEvent,
+  ApplicationStageChangedEventPayload,
+  ApplicationStage,
 } from '@standardnotes/services'
 import { GetFeatureUrl } from './UseCase/GetFeatureUrl'
+import { CachedThemeCss, cssToDataUrl, isCacheableThemeSourceUrl, ThirdPartyThemeCache } from './ThirdPartyThemeCache'
+import {
+  areOfflinePackagesEqual,
+  contentWithOfflinePackage,
+  createSingleFileOfflinePackage,
+  isOfflinePackageCurrent,
+  offlinePackageMainText,
+  readOfflinePackage,
+} from './OfflinePackage'
 import { ComponentManagerEventData } from './ComponentManagerEventData'
 import { ComponentManagerEvent } from './ComponentManagerEvent'
 import { RunWithPermissionsUseCase } from './UseCase/RunWithPermissionsUseCase'
@@ -74,7 +90,7 @@ declare global {
  */
 export class ComponentManager
   extends AbstractService<ComponentManagerEvent, ComponentManagerEventData>
-  implements ComponentManagerInterface
+  implements ComponentManagerInterface, InternalEventHandlerInterface
 {
   private desktopManager?: DesktopManagerInterface
   private viewers: ComponentViewerInterface[] = []
@@ -92,6 +108,12 @@ export class ComponentManager
   )
 
   private nativeThemesAsBase64: Record<string, string> = {}
+
+  /** Offline build: third-party theme stylesheets cached on this device, served as data: URLs. */
+  private readonly themeCssCache = new ThirdPartyThemeCache(this.device)
+
+  /** Offline build: theme items whose stored copy is being written, so that it is not written twice at once. */
+  private readonly themeCopyWrites = new Set<string>()
 
   constructor(
     private items: ItemManagerInterface,
@@ -162,6 +184,20 @@ export class ComponentManager
 
     ;(this.detectFocusChange as unknown) = undefined
     ;(this.onWindowMessage as unknown) = undefined
+  }
+
+  /**
+   * Offline build: loads the theme cache at PreparingForLaunch_0, before StorageReady, so the themes that
+   * ThemeManager activates at StorageReady already resolve to their cached copies.
+   */
+  async handleEvent(event: InternalEventInterface): Promise<void> {
+    if (event.type !== ApplicationEvent.ApplicationStageChanged) {
+      return
+    }
+    const stage = (event.payload as ApplicationStageChangedEventPayload).stage
+    if (stage === ApplicationStage.PreparingForLaunch_0) {
+      await this.themeCssCache.load()
+    }
   }
 
   public setPermissionDialogUIHandler(handler: (dialog: PermissionDialog) => void): void {
@@ -260,6 +296,8 @@ export class ComponentManager
           this.handleChangedComponents(items, source)
 
           this.updateMobileRegisteredComponentUrls(inserted, removed)
+
+          this.updateThemeCssCache(items, removed, source)
         },
       ),
     )
@@ -275,7 +313,8 @@ export class ComponentManager
 
     for (const component of inserted) {
       const feature = new UIFeature<ComponentFeatureDescription>(component)
-      const url = this.urlForFeature(feature)
+      /** Offline build: the hosted address, not a cached theme's data: URL. */
+      const url = this.uncachedUrlForFeature(feature)
       if (url) {
         this.device.registerComponentUrl(component.uuid, url)
       }
@@ -391,8 +430,214 @@ export class ComponentManager
   }
 
   public urlForFeature(uiFeature: UIFeature<ComponentFeatureDescription>): string | undefined {
+    return this.cachedThemeUrlForFeature(uiFeature) ?? this.uncachedUrlForFeature(uiFeature)
+  }
+
+  private uncachedUrlForFeature(uiFeature: UIFeature<ComponentFeatureDescription>): string | undefined {
     const usecase = new GetFeatureUrl(this.desktopManager, this.environment, this.platform)
     return usecase.execute(uiFeature)
+  }
+
+  /**
+   * Offline build: a third-party (plugin) theme with a cached stylesheet loads from the cache as a data: URL instead
+   * of its hosted_url, in the app and in editor iframes. Not used on desktop, which serves components locally.
+   */
+  private cachedThemeUrlForFeature(uiFeature: UIFeature<ComponentFeatureDescription>): string | undefined {
+    if (this.desktopManager || !uiFeature.isComponent || !uiFeature.asComponent.isTheme()) {
+      return undefined
+    }
+    const component = uiFeature.asComponent
+    const deviceCopyUrl = this.themeCssCache.dataUrlFor(component.uuid)
+    if (deviceCopyUrl) {
+      return deviceCopyUrl
+    }
+    /** No device copy yet (e.g. just restored from a backup): the copy stored in the theme item, if any. */
+    const itemPackage = readOfflinePackage(component.content)
+    const itemCss = itemPackage ? offlinePackageMainText(itemPackage) : undefined
+    return itemCss !== undefined ? cssToDataUrl(itemCss) : undefined
+  }
+
+  /**
+   * Offline build: keeps the stored copies of plugin theme stylesheets in step with the installed plugin themes.
+   * - Installed, changed or imported (including at local load, by sync and from a backup file): uses the copy that
+   *   came with the theme item, or downloads the stylesheet if neither copy is current for the item's hosted address
+   *   and version. A failed download (e.g. blocked by network isolation) keeps the old copy.
+   * - Uninstalled (deleted on this device, or the deletion synced in): deletes the device copy and deactivates the
+   *   theme (the item's copy is deleted with the item). Items removed from memory without being deleted (sign-out,
+   *   discarding local data) are not treated as uninstalls.
+   */
+  private updateThemeCssCache(
+    components: ComponentInterface[],
+    removed: (EncryptedItemInterface | DeletedItemInterface)[],
+    source: PayloadEmitSource,
+  ): void {
+    if (this.desktopManager) {
+      return
+    }
+
+    const isUninstall = (item: EncryptedItemInterface | DeletedItemInterface) =>
+      source === PayloadEmitSource.RemoteRetrieved || (source === PayloadEmitSource.LocalChanged && item.dirty === true)
+
+    for (const item of removed) {
+      if (isUninstall(item)) {
+        void this.uninstallCachedTheme(item.uuid)
+      }
+    }
+
+    const cacheSources = [
+      PayloadEmitSource.LocalDatabaseLoaded,
+      PayloadEmitSource.LocalInserted,
+      PayloadEmitSource.LocalChanged,
+      PayloadEmitSource.RemoteRetrieved,
+      PayloadEmitSource.FileImport,
+    ]
+    if (!cacheSources.includes(source)) {
+      return
+    }
+
+    for (const component of components) {
+      if (this.storableThemeSourceUrl(component)) {
+        void this.syncThemeCopies(component, false)
+      }
+    }
+  }
+
+  /**
+   * Offline build: makes sure a plugin theme that is being activated has a stored copy, downloading it now if needed
+   * (also when an earlier attempt in this session failed). Resolves false only for a plugin theme that has no stored
+   * copy and could not be downloaded, so the UI can explain why it does not apply.
+   */
+  public async storeThemeForOfflineUse(uiFeature: UIFeature<ThemeFeatureDescription>): Promise<boolean> {
+    if (!uiFeature.isComponent) {
+      return true
+    }
+    return this.syncThemeCopies(uiFeature.asComponent, true)
+  }
+
+  /** Offline build: the hosted address of a plugin theme whose stylesheet can be stored, if the item is one. */
+  private storableThemeSourceUrl(component: ComponentInterface): string | undefined {
+    if (this.desktopManager || !component.isTheme() || FindNativeFeature(component.identifier)) {
+      return undefined
+    }
+    const sourceUrl = this.uncachedUrlForFeature(new UIFeature<ComponentFeatureDescription>(component))
+    return isCacheableThemeSourceUrl(sourceUrl) ? sourceUrl : undefined
+  }
+
+  /**
+   * Offline build: keeps the two stored copies of a plugin theme's stylesheet in step, and downloads only when
+   * neither is current:
+   * - the device copy, read at launch before items load, so an active theme applies at once;
+   * - the copy in the theme item, which travels with the item in backups and through sync.
+   * Resolves true when a copy is available afterwards (not applicable counts as available).
+   */
+  private async syncThemeCopies(component: ComponentInterface, retryDownload: boolean): Promise<boolean> {
+    const sourceUrl = this.storableThemeSourceUrl(component)
+    if (!sourceUrl) {
+      return true
+    }
+    await this.themeCssCache.load()
+
+    const uuid = component.uuid
+    const version = component.package_info?.version
+    const itemPackage = readOfflinePackage(component.content)
+    const itemCss = itemPackage ? offlinePackageMainText(itemPackage) : undefined
+
+    /** 1. The item brings a current copy, or the device has none: use the item's copy, with no download. */
+    if (itemPackage && itemCss !== undefined && !this.themeCssCache.isCurrent(uuid, sourceUrl, version)) {
+      if (isOfflinePackageCurrent(itemPackage, sourceUrl, version) || !this.themeCssCache.has(uuid)) {
+        const adopted = await this.themeCssCache.adopt(
+          uuid,
+          component.identifier,
+          itemPackage.sourceUrl,
+          itemPackage.version,
+          itemCss,
+        )
+        if (adopted) {
+          this.reloadActiveThemeStylesheet(uuid)
+        }
+      }
+    }
+
+    /** 2. Neither copy is current: download (one attempt per session, unless the user retries). */
+    if (!this.themeCssCache.isCurrent(uuid, sourceUrl, version)) {
+      const downloaded = await this.themeCssCache.cache(uuid, component.identifier, sourceUrl, version, retryDownload)
+      if (downloaded) {
+        this.reloadActiveThemeStylesheet(uuid)
+      }
+    }
+
+    /** 3. Store the device copy in the item if the item has none, or if the device copy is current and differs. */
+    const entry = this.themeCssCache.getEntry(uuid)
+    if (entry && (!itemPackage || this.themeCssCache.isCurrent(uuid, sourceUrl, version))) {
+      await this.storeThemeCopyInItem(uuid, entry)
+    }
+
+    return this.themeCssCache.has(uuid)
+  }
+
+  /**
+   * Offline build: writes the stylesheet into the theme item (see OfflinePackage.ts), so backups and sync carry it.
+   * Does not change the item's modification date. Skipped when the item already holds the same copy.
+   */
+  private async storeThemeCopyInItem(uuid: string, entry: CachedThemeCss): Promise<void> {
+    const item = this.items.findItem<ComponentInterface>(uuid)
+    if (!item || this.themeCopyWrites.has(uuid)) {
+      return
+    }
+
+    const desired = createSingleFileOfflinePackage(entry.sourceUrl, entry.version, entry.css)
+    if (areOfflinePackagesEqual(readOfflinePackage(item.content), desired)) {
+      return
+    }
+
+    this.themeCopyWrites.add(uuid)
+    try {
+      await this.mutator.changeItem<DecryptedItemMutator, ComponentInterface>(
+        item,
+        (mutator) => {
+          mutator.setCustomContent(contentWithOfflinePackage(mutator.getItem().content, desired))
+        },
+        MutationType.NoUpdateUserTimestamps,
+      )
+      void this.sync.sync()
+      /** console.warn, like the theme cache, because on mobile console.log does not reach the WebView console. */
+      console.warn(`[theme-cache] stored ${entry.identifier} in its plugin item`)
+    } catch (error) {
+      console.warn(`[theme-cache] could not store ${entry.identifier} in its plugin item: ${(error as Error)?.message}`)
+    } finally {
+      this.themeCopyWrites.delete(uuid)
+    }
+  }
+
+  private async uninstallCachedTheme(uuid: string): Promise<void> {
+    const activeThemes = this.preferences.getLocalValue(LocalPrefKey.ActiveThemes, [])
+    if (activeThemes.includes(uuid)) {
+      this.preferences.setLocalValue(
+        LocalPrefKey.ActiveThemes,
+        activeThemes.filter((activeTheme) => activeTheme !== uuid),
+      )
+    }
+
+    await this.themeCssCache.remove(uuid)
+  }
+
+  /**
+   * Offline build: after a theme's stylesheet was (re)cached, points the theme's stylesheet link (added by
+   * ThemeManager, element id = the theme's uuid) at the cached copy, and resends theme URLs to editor iframes.
+   */
+  private reloadActiveThemeStylesheet(uuid: string): void {
+    const activeThemes = this.preferences.getLocalValue(LocalPrefKey.ActiveThemes, [])
+    if (!activeThemes.includes(uuid)) {
+      return
+    }
+
+    const url = this.themeCssCache.dataUrlFor(uuid)
+    const element = typeof document !== 'undefined' ? document.getElementById(uuid) : null
+    if (url && element && element.tagName === 'LINK') {
+      ;(element as HTMLLinkElement).href = url
+    }
+
+    this.postActiveThemesToAllViewers()
   }
 
   public urlsForActiveThemes(): string[] {

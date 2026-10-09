@@ -18,6 +18,8 @@ export function RegisterApplicationServicesEvents(container: Dependencies, event
   events.addEventHandler(container.get(TYPES.DiskStorageService), ApplicationEvent.ApplicationStageChanged)
   events.addEventHandler(container.get(TYPES.FeaturesService), ApiServiceEvent.MetaReceived)
   events.addEventHandler(container.get(TYPES.FeaturesService), ApplicationEvent.ApplicationStageChanged)
+  /** Offline build: loads the third-party theme cache before StorageReady. */
+  events.addEventHandler(container.get(TYPES.ComponentManager), ApplicationEvent.ApplicationStageChanged)
   events.addEventHandler(container.get(TYPES.IntegrityService), SyncEvent.SyncRequestsIntegrityCheck)
   events.addEventHandler(container.get(TYPES.KeyRecoveryService), ApplicationEvent.ApplicationStageChanged)
   events.addEventHandler(container.get(TYPES.KeySystemKeyManager), ApplicationEvent.ApplicationStageChanged)

@@ -37,6 +37,8 @@ export interface ComponentManagerInterface {
 
   isThemeActive(theme: UIFeature<ThemeFeatureDescription>): boolean
   toggleTheme(theme: UIFeature<ThemeFeatureDescription>, skipEntitlementCheck?: boolean): Promise<void>
+  /** Offline build: resolves false for a plugin theme with no stored copy that could not be downloaded. */
+  storeThemeForOfflineUse(theme: UIFeature<ThemeFeatureDescription>): Promise<boolean>
   toggleOtherNonLayerableThemes(uiFeature: UIFeature<ThemeFeatureDescription>): void
   getActiveThemes(): UIFeature<ThemeFeatureDescription>[]
   getActiveThemesIdentifiers(): { features: NativeFeatureIdentifier[]; uuids: Uuid[] }
