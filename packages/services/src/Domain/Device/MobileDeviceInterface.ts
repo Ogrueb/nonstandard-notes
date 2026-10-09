@@ -36,6 +36,9 @@ export interface MobileDeviceInterface extends DeviceInterface {
   getColorScheme(): Promise<'light' | 'dark' | null | undefined>
   purchaseSubscriptionIAP(plan: AppleIAPProductId): Promise<AppleIAPReceipt | undefined>
   authenticateWithU2F(authenticationOptionsJSONString: string): Promise<Record<string, unknown> | null>
+  /** Offline build: network isolation (Android). On: local network only. Off: internet except Standard Notes. */
+  getNetworkIsolationEnabled(): Promise<boolean>
+  setNetworkIsolationEnabledAndReload(enabled: boolean): Promise<boolean>
   /** Offline build: device copy of the offline activation code, kept outside the workspace. */
   getOfflineActivationBackup(): Promise<string | undefined>
   setOfflineActivationBackup(code: string): Promise<boolean>

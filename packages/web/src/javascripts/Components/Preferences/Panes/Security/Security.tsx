@@ -10,6 +10,8 @@ import ErroredItems from './ErroredItems'
 import PreferencesPane from '@/Components/Preferences/PreferencesComponents/PreferencesPane'
 import BiometricsLock from '@/Components/Preferences/Panes/Security/BiometricsLock'
 import MultitaskingPrivacy from '@/Components/Preferences/Panes/Security/MultitaskingPrivacy'
+import NetworkIsolation from '@/Components/Preferences/Panes/Security/NetworkIsolation'
+import { isAndroid } from '@standardnotes/ui-services'
 import { TwoFactorAuth, is2FAEnabled as checkIf2FAIsEnabled } from './TwoFactorAuth/TwoFactorAuth'
 import U2FView from './U2F/U2FView/U2FView'
 import TwoFactorAuthView from './TwoFactorAuth/TwoFactorAuthView/TwoFactorAuthView'
@@ -48,7 +50,10 @@ const Security: FunctionComponent<SecurityProps> = (props) => {
       <Encryption />
       {props.application.items.invalidNonVaultedItems.length > 0 && <ErroredItems />}
       <Protections application={props.application} />
-      <TwoFactorAuthView auth={auth} application={props.application} canDisable2FA={canDisable2FA} />
+      {/* Offline build: 2FA needs a sync server account (possible on a LAN server) */}
+      {props.application.hasAccount() && (
+        <TwoFactorAuthView auth={auth} application={props.application} canDisable2FA={canDisable2FA} />
+      )}
       {isU2FFeatureAvailable && (
         <U2FView
           application={props.application}
@@ -56,6 +61,7 @@ const Security: FunctionComponent<SecurityProps> = (props) => {
           loadAuthenticatorsCallback={onU2FDevicesLoaded}
         />
       )}
+      {isNativeMobileWeb && isAndroid() && <NetworkIsolation application={props.application} />}
       {isNativeMobileWeb && <MultitaskingPrivacy application={props.application} />}
       <PasscodeLock application={props.application} />
       {isNativeMobileWeb && <BiometricsLock application={props.application} />}

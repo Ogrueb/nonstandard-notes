@@ -15,7 +15,7 @@ import { addToast, ToastType } from '@standardnotes/toast'
 
 /** Offline build: shown when a plugin theme is selected that has no stored copy and could not be downloaded. */
 const THEME_NOT_STORED_MESSAGE =
-  'This theme is not stored on this device yet, and it could not be downloaded. It needs an internet connection once.'
+  'This theme is not stored on this device yet, and it could not be downloaded. It needs an internet connection once, with Network Isolation off (Preferences > Security).'
 
 type Props = {
   uiFeature: UIFeature<ThemeFeatureDescription>

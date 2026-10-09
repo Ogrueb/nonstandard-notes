@@ -13,7 +13,6 @@ import CustomAndroidWebView from './CustomAndroidWebView'
 import { MobileDevice, MobileDeviceEvent } from './Lib/MobileDevice'
 import { IsDev } from './Lib/Utils'
 import { ReceivedSharedItemsHandler } from './ReceivedSharedItemsHandler'
-import { ReviewService } from './ReviewService'
 import notifee, { EventType } from '@notifee/react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { c } from 'ttag'
@@ -41,7 +40,27 @@ const MobileWebAppContents = ({ destroyAndReload }: { destroyAndReload: () => vo
     () => new MobileDevice(stateService, androidBackHandlerService, colorSchemeService),
     [androidBackHandlerService, colorSchemeService, stateService],
   )
-  const _reviewService = useRef(new ReviewService(device))
+
+  /**
+   * Offline build: network isolation setting, read before the WebView is created so that the
+   * injected flag is final before any page script runs. undefined while loading.
+   */
+  const [networkIsolation, setNetworkIsolation] = useState<boolean | undefined>(undefined)
+
+  useEffect(() => {
+    let cancelled = false
+    void device
+      .getNetworkIsolationEnabled()
+      .catch(() => true)
+      .then((enabled) => {
+        if (!cancelled) {
+          setNetworkIsolation(enabled)
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [device])
 
   const [showAndroidWebviewUpdatePrompt, setShowAndroidWebviewUpdatePrompt] = useState(false)
   const [didLoadEnd, setDidLoadEnd] = useState(false)
@@ -294,6 +313,8 @@ const MobileWebAppContents = ({ destroyAndReload }: { destroyAndReload: () => vo
   `
 
   const injectedJS = `
+  // Offline build: network isolation mode for the allowlist (OfflineAllowlist.ts); only an explicit false turns it off
+  window.snOfflineNetworkIsolation = ${networkIsolation !== false};
 
   console.log = (...args) => {
     window.ReactNativeWebView.postMessage('[web log] ' + args.join(' '));
@@ -460,6 +481,11 @@ const MobileWebAppContents = ({ destroyAndReload }: { destroyAndReload: () => vo
         />
       </View>
     )
+  }
+
+  if (networkIsolation === undefined) {
+    /** Offline build: wait for the network isolation setting (one local read) before creating the WebView */
+    return <View style={{ flex: 1, backgroundColor: '#000000' }} />
   }
 
   return (

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { observer } from 'mobx-react-lite'
 import { ServerType } from './ServerType'
 import DecoratedInput from '@/Components/Input/DecoratedInput'
 import Icon from '@/Components/Icon/Icon'
@@ -7,6 +8,7 @@ import { isDesktopApplication } from '@/Utils'
 import RadioButtonGroup from '@/Components/RadioButtonGroup/RadioButtonGroup'
 import { DefaultHost } from '@standardnotes/snjs'
 import { c } from 'ttag'
+import { SYNC_SERVER_PLACEHOLDER, displayedSyncServer } from '@/OfflineBuild/OfflineBuildUI'
 
 type Props = {
   className?: string
@@ -15,7 +17,8 @@ type Props = {
 const ServerPicker = ({ className }: Props) => {
   const application = useApplication()
 
-  const [currentType, setCurrentType] = useState<ServerType>('standard')
+  /** Offline build: no 'standard' (Standard Notes) option; custom is the default */
+  const [currentType, setCurrentType] = useState<ServerType>('custom')
 
   const { server, setServer } = application.accountMenuController
 
@@ -23,8 +26,6 @@ const ServerPicker = ({ className }: Props) => {
     const homeServerUrl = await application.homeServer?.getHomeServerUrl()
     if (homeServerUrl && server === homeServerUrl) {
       setCurrentType('home server')
-    } else if (server === DefaultHost.Api) {
-      setCurrentType('standard')
     } else {
       setCurrentType('custom')
     }
@@ -78,7 +79,7 @@ const ServerPicker = ({ className }: Props) => {
   const options = useMemo(
     () =>
       [
-        { label: c('B1.Account.SignIn.Option').t`Default`, value: 'standard' },
+        /** Offline build: Standard Notes' "Default" server option removed */
         { label: c('B1.Account.SignIn.Option').t`Custom`, value: 'custom' },
       ].concat(
         isDesktopApplication() ? [{ label: c('B1.Account.SignIn.Option').t`Home Server`, value: 'home server' }] : [],
@@ -92,7 +93,7 @@ const ServerPicker = ({ className }: Props) => {
   return (
     <div className={`flex h-full flex-grow flex-col px-3 pb-1.5 ${className}`}>
       <div className="mb-2 flex font-bold">{c('B1.Account.SignIn.Label').t`Sync Server`}</div>
-      <RadioButtonGroup value={currentType} items={options} onChange={selectTab} />
+      {options.length > 1 && <RadioButtonGroup value={currentType} items={options} onChange={selectTab} />}
       {currentType === 'custom' && (
         <DecoratedInput
           className={{
@@ -100,8 +101,8 @@ const ServerPicker = ({ className }: Props) => {
           }}
           type="text"
           left={[<Icon type="server" className="text-neutral" />]}
-          placeholder={DefaultHost.Api}
-          value={server}
+          placeholder={SYNC_SERVER_PLACEHOLDER}
+          value={displayedSyncServer(server)}
           onChange={handleSyncServerChange}
         />
       )}
@@ -109,4 +110,5 @@ const ServerPicker = ({ className }: Props) => {
   )
 }
 
-export default ServerPicker
+/** Offline build: observer, so typed input shows (it used to re-render only via its parent) */
+export default observer(ServerPicker)

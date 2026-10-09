@@ -15,9 +15,20 @@ const BrowsePlugins: FunctionComponent = () => {
   const application = useApplication()
 
   const [plugins, setPlugins] = useState<PluginsList | null>(null)
+  /** Offline build: the plugin list is fetched from GitHub, which the allowlist blocks */
+  const [loadFailed, setLoadFailed] = useState(false)
 
   const reloadPlugins = useCallback(() => {
-    application.pluginsService.getInstallablePlugins().then(setPlugins).catch(console.error)
+    application.pluginsService
+      .getInstallablePlugins()
+      .then((list) => {
+        setPlugins(list)
+        setLoadFailed(false)
+      })
+      .catch((error) => {
+        console.error(error)
+        setLoadFailed(true)
+      })
   }, [application])
 
   useEffect(() => {
@@ -41,7 +52,16 @@ const BrowsePlugins: FunctionComponent = () => {
           {c('B6.Preferences.Plugins.Info').t`can encapsulate any functionality found in plugins.`}
         </Text>
 
-        {!plugins && (
+        {!plugins && loadFailed && (
+          <div className="mb-3 mt-5 flex h-full w-full items-center">
+            <span className="w-full font-bold">
+              The plugin list could not be loaded. It needs an internet connection. Plugins can still be installed from
+              an address under Install Custom Plugin.
+            </span>
+          </div>
+        )}
+
+        {!plugins && !loadFailed && (
           <div className="mb-3 mt-5 flex h-full w-full items-center">
             <span className="w-full font-bold">{c('B6.Preferences.Other.Info').t`Loading...`}</span>
           </div>

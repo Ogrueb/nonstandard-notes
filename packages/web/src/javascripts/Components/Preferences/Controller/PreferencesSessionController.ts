@@ -8,6 +8,7 @@ import { isDesktopApplication } from '@/Utils'
 import { PreferencesMenuItem } from './PreferencesMenuItem'
 import { SelectableMenuItem } from './SelectableMenuItem'
 import { PREFERENCES_MENU_ITEMS, READY_PREFERENCES_MENU_ITEMS } from './MenuItems'
+import { isOnlinePluginListHidden, isPreferencePaneHidden } from '@/OfflineBuild/OfflineBuildUI'
 
 /**
  * Unlike PreferencesController, the PreferencesSessionController is ephemeral and bound to a single opening of the
@@ -39,9 +40,13 @@ export class PreferencesSessionController {
       })
     }
 
-    this._menu = menuItems.sort((a, b) => a.order - b.order)
+    /** Offline build: drop panes that depend on Standard Notes' services or (isolated) the internet */
+    this._menu = menuItems.filter((item) => !isPreferencePaneHidden(item.id)).sort((a, b) => a.order - b.order)
 
-    this.loadLatestVersions()
+    /** Offline build: the latest plugin versions come from GitHub; skip the request while isolated */
+    if (!isOnlinePluginListHidden()) {
+      this.loadLatestVersions()
+    }
 
     makeAutoObservable<
       PreferencesSessionController,

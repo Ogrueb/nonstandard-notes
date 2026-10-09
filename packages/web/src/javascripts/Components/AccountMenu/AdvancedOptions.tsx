@@ -5,7 +5,6 @@ import DecoratedInput from '@/Components/Input/DecoratedInput'
 import Icon from '@/Components/Icon/Icon'
 import { useApplication } from '../ApplicationProvider'
 import ServerPicker from './ServerPicker/ServerPicker'
-import { DefaultHost } from '@standardnotes/snjs'
 import { c } from 'ttag'
 
 type Props = {
@@ -25,9 +24,8 @@ const AdvancedOptions: FunctionComponent<Props> = ({
 }) => {
   const application = useApplication()
 
-  const { server } = application.accountMenuController
-
-  const [showAdvanced, setShowAdvanced] = useState(server !== DefaultHost.Api)
+  /** Offline build: open by default, since a sync server must be entered (no default server) */
+  const [showAdvanced, setShowAdvanced] = useState(true)
 
   const [isPrivateUsername, setIsPrivateUsername] = useState(false)
   const [privateUsername, setPrivateUsername] = useState('')
@@ -36,6 +34,12 @@ const AdvancedOptions: FunctionComponent<Props> = ({
   const [recoveryCodes, setRecoveryCodes] = useState('')
 
   const [isStrictSignin, setIsStrictSignin] = useState(false)
+
+  /** Offline build: info text shown inline on tap (tooltips only open on hover or long-press) */
+  const [openInfo, setOpenInfo] = useState<'private-username' | 'strict-signin' | undefined>()
+  const toggleInfo = useCallback((info: 'private-username' | 'strict-signin') => {
+    setOpenInfo((current) => (current === info ? undefined : info))
+  }, [])
 
   useEffect(() => {
     void application.homeServer?.isHomeServerRunning().then((isRunning) => {
@@ -132,15 +136,21 @@ const AdvancedOptions: FunctionComponent<Props> = ({
                 disabled={disabled || isRecoveryCodes}
                 onChange={handleIsPrivateUsernameChange}
               />
-              <a
-                href="https://standardnotes.com/help/80"
-                target="_blank"
-                rel="noopener noreferrer"
+              {/* Offline build: local explanation instead of a standardnotes.com help link */}
+              <button
+                type="button"
+                className="ml-1 rounded-full p-0.5 hover:bg-contrast"
+                aria-expanded={openInfo === 'private-username'}
                 title={c('B1.Account.SignIn.Action').t`Learn more`}
+                onClick={() => toggleInfo('private-username')}
               >
                 <Icon type="info" className="text-neutral" />
-              </a>
+              </button>
             </div>
+            {openInfo === 'private-username' && (
+              <div className="mb-2 text-xs text-passive-0">{c('B1.Account.SignIn.Info')
+                .t`Login with a hashed username instead of email.`}</div>
+            )}
 
             {isPrivateUsername && (
               <>
@@ -159,23 +169,31 @@ const AdvancedOptions: FunctionComponent<Props> = ({
             )}
 
             {onStrictSignInChange && (
-              <div className="mb-1 flex items-center justify-between">
-                <Checkbox
-                  name="use-strict-signin"
-                  label={c('B1.Account.SignIn.Option').t`Use strict sign-in`}
-                  checked={isStrictSignin}
-                  disabled={disabled || isRecoveryCodes}
-                  onChange={handleStrictSigninChange}
-                />
-                <a
-                  href="https://standardnotes.com/help/security"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title={c('B1.Account.SignIn.Action').t`Learn more`}
-                >
-                  <Icon type="info" className="text-neutral" />
-                </a>
-              </div>
+              <>
+                <div className="mb-1 flex items-center justify-between">
+                  <Checkbox
+                    name="use-strict-signin"
+                    label={c('B1.Account.SignIn.Option').t`Use strict sign-in`}
+                    checked={isStrictSignin}
+                    disabled={disabled || isRecoveryCodes}
+                    onChange={handleStrictSigninChange}
+                  />
+                  {/* Offline build: local explanation instead of a standardnotes.com help link */}
+                  <button
+                    type="button"
+                    className="ml-1 rounded-full p-0.5 hover:bg-contrast"
+                    aria-expanded={openInfo === 'strict-signin'}
+                    title={c('B1.Account.SignIn.Action').t`Learn more`}
+                    onClick={() => toggleInfo('strict-signin')}
+                  >
+                    <Icon type="info" className="text-neutral" />
+                  </button>
+                </div>
+                {openInfo === 'strict-signin' && (
+                  <div className="mb-2 text-xs text-passive-0">{c('B1.Account.SignIn.Info')
+                    .t`Requires server to have current encryption version.`}</div>
+                )}
+              </>
             )}
 
             {onRecoveryCodesChange && (

@@ -9,6 +9,7 @@ import PreferencesPane from '../../PreferencesComponents/PreferencesPane'
 import { Title } from '../../PreferencesComponents/Content'
 import ManagePlugins from './ManagePlugins/ManagePlugins'
 import { c } from 'ttag'
+import { isOnlinePluginListHidden } from '@/OfflineBuild/OfflineBuildUI'
 
 type Props = {
   pluginsLatestVersions: PackageProvider
@@ -17,11 +18,14 @@ type Props = {
 const PluginsPane: FunctionComponent<Props> = ({ pluginsLatestVersions }) => {
   return (
     <PreferencesPane>
-      <PreferencesGroup>
-        <PreferencesSegment>
-          <BrowsePlugins />
-        </PreferencesSegment>
-      </PreferencesGroup>
+      {/* Offline build: the online plugin list comes from GitHub; hidden while isolated */}
+      {!isOnlinePluginListHidden() && (
+        <PreferencesGroup>
+          <PreferencesSegment>
+            <BrowsePlugins />
+          </PreferencesSegment>
+        </PreferencesGroup>
+      )}
 
       <PreferencesGroup>
         <PreferencesSegment>

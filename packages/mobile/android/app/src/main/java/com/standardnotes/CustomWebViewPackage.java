@@ -12,7 +12,8 @@ import com.facebook.react.uimanager.ViewManager;
 public class CustomWebViewPackage implements ReactPackage {
   @Override
   public List<NativeModule> createNativeModules(ReactApplicationContext reactContext) {
-    return Collections.emptyList();
+    /** Offline build: network isolation setting, used together with CustomWebViewManager */
+    return Arrays.<NativeModule>asList(new NetworkIsolationModule(reactContext));
   }
 
   @Override

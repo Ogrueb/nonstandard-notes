@@ -159,6 +159,24 @@ export class MobileDevice implements MobileDeviceInterface {
     return Promise.resolve(undefined)
   }
 
+  /**
+   * Offline build: network isolation setting, stored natively (NetworkIsolationSetting.java).
+   * On: local network only. Off: internet too, except Standard Notes' own domains.
+   * Anything unexpected (no native module, e.g. on iOS, or an error) counts as on (fail closed).
+   */
+  async getNetworkIsolationEnabled(): Promise<boolean> {
+    const { NetworkIsolation } = NativeModules
+    if (!NetworkIsolation) {
+      return true
+    }
+    try {
+      return (await NetworkIsolation.isEnabled()) !== false
+    } catch (error) {
+      this.consoleLog(`NetworkIsolation.isEnabled error: ${(error as Error).message}`)
+      return true
+    }
+  }
+
   /** Offline build: device copy of the offline activation, kept outside the workspace (Keychain.ts). */
   async getOfflineActivationBackup(): Promise<string | undefined> {
     try {
@@ -185,6 +203,34 @@ export class MobileDevice implements MobileDeviceInterface {
       this.consoleLog(`clearOfflineActivationBackup error: ${(error as Error).message}`)
       return false
     }
+  }
+
+  private async resetNetworkIsolation(): Promise<void> {
+    const { NetworkIsolation } = NativeModules
+    if (!NetworkIsolation) {
+      return
+    }
+    try {
+      await NetworkIsolation.setEnabled(true)
+    } catch (error) {
+      this.consoleLog(`NetworkIsolation reset error: ${(error as Error).message}`)
+    }
+  }
+
+  /** Saves the setting and reloads the web app so that both layers use it. Returns false if not saved. */
+  async setNetworkIsolationEnabledAndReload(enabled: boolean): Promise<boolean> {
+    const { NetworkIsolation } = NativeModules
+    if (!NetworkIsolation) {
+      return false
+    }
+    try {
+      await NetworkIsolation.setEnabled(enabled)
+    } catch (error) {
+      this.consoleLog(`NetworkIsolation.setEnabled error: ${(error as Error).message}`)
+      return false
+    }
+    setTimeout(() => this.performSoftReset(), 0)
+    return true
   }
 
   private findOrCreateDatabase(identifier: ApplicationIdentifier): Database {
@@ -441,6 +487,13 @@ export class MobileDevice implements MobileDeviceInterface {
     await this.removeAllRawStorageValues()
 
     await this.clearRawKeychainValue()
+
+    /**
+     * Offline build: clearing all data returns network isolation to its default (on). The offline
+     * activation copy (getOfflineActivationBackup) is deliberately kept; only removing the
+     * offline key clears it.
+     */
+    await this.resetNetworkIsolation()
 
     return { killsApplication: false }
   }

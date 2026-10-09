@@ -5,17 +5,7 @@ import PreferencesGroup from '../PreferencesComponents/PreferencesGroup'
 import PreferencesSegment from '../PreferencesComponents/PreferencesSegment'
 import { WebApplication } from '@/Application/WebApplication'
 import { MouseEventHandler } from 'react'
-import {
-  AppName,
-  jtString,
-  DiscordUrl,
-  ForumUrl,
-  HelpOfflineUrl,
-  HelpUrl,
-  PrivacyPolicyUrl,
-  SupportEmail,
-  SupportMailtoUrl,
-} from '@standardnotes/features'
+import { AppName, jtString, ForumUrl, HelpOfflineUrl, HelpUrl, PrivacyPolicyUrl } from '@standardnotes/features'
 import { c } from 'ttag'
 
 const HelpAndFeedback = ({ application }: { application: WebApplication }) => {
@@ -88,6 +78,11 @@ const HelpAndFeedback = ({ application }: { application: WebApplication }) => {
               {c('B7.FilesSubscriptionHelp.Help.Info').t`more details here.`}
             </a>
           </Text>
+          <Text className="mt-2">
+            This version of the app is an unofficial fork designed to be offline-first: it works fully without an
+            internet connection or a Standard Notes account, keeps premium features and themes on the device, and by
+            default only connects to servers on your local network.
+          </Text>
         </PreferencesSegment>
         <HorizontalSeparator classes="my-4" />
         <PreferencesSegment>
@@ -115,39 +110,7 @@ const HelpAndFeedback = ({ application }: { application: WebApplication }) => {
           />
         </PreferencesSegment>
       </PreferencesGroup>
-      <PreferencesGroup>
-        <PreferencesSegment>
-          <Title>{c('B7.FilesSubscriptionHelp.Help.Info').t`Discord server`}</Title>
-          <Text>
-            {jtString(
-              c('B7.FilesSubscriptionHelp.Help.Info')
-                .jt`Want to meet other passionate note-takers and privacy enthusiasts? Want to share your feedback with us? Join the ${AppName} Discord for discussions on security, themes, editors and more.`,
-            )}
-          </Text>
-          <LinkButton
-            className="mt-3"
-            link={DiscordUrl}
-            label={c('B7.FilesSubscriptionHelp.Help.Label').t`Join our Discord`}
-            onClick={handleClick}
-          />
-        </PreferencesSegment>
-      </PreferencesGroup>
-      <PreferencesGroup>
-        <PreferencesSegment>
-          <Title>{c('B7.FilesSubscriptionHelp.Help.Confirmation').t`Account related issue?`}</Title>
-          <Text>
-            {jtString(
-              c('B7.FilesSubscriptionHelp.Help.Info').jt`Send an email to ${SupportEmail} and we’ll sort it out.`,
-            )}
-          </Text>
-          <LinkButton
-            className="mt-3"
-            link={SupportMailtoUrl}
-            label={c('B7.FilesSubscriptionHelp.Help.Label').t`Email us`}
-            onClick={handleClick}
-          />
-        </PreferencesSegment>
-      </PreferencesGroup>
+      {/* Offline build: Discord and account-support sections removed (not applicable to this fork) */}
     </PreferencesPane>
   )
 }

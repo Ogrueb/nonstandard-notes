@@ -28,12 +28,20 @@ const WhatsNewSection = ({ items, sectionName }: { items: string[] | undefined; 
 
 const WhatsNew = ({ application }: { application: WebApplication }) => {
   const [changelog, setChangelog] = useState<Changelog | null>(null)
+  /** Offline build: the changelog is fetched from GitHub, which the allowlist blocks */
+  const [loadFailed, setLoadFailed] = useState(false)
 
   const appVersion = application.version
   const lastReadVersion = useMemo(() => application.changelogService.getLastReadVersion(), [application])
 
   useEffect(() => {
-    application.changelogService.getChangelog().then(setChangelog).catch(console.error)
+    application.changelogService
+      .getChangelog()
+      .then(setChangelog)
+      .catch((error) => {
+        console.error(error)
+        setLoadFailed(true)
+      })
   }, [application])
 
   useEffect(() => {
@@ -41,6 +49,14 @@ const WhatsNew = ({ application }: { application: WebApplication }) => {
       application.changelogService.markAsRead()
     }
   }, [changelog, application])
+
+  if (!changelog && loadFailed) {
+    return (
+      <div className="flex h-full w-full items-center text-center">
+        <span className="w-full font-bold">What's New could not be loaded. It needs an internet connection.</span>
+      </div>
+    )
+  }
 
   if (!changelog) {
     return (

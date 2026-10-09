@@ -22,6 +22,7 @@ import MergeLocalDataCheckbox from './MergeLocalDataCheckbox'
 import ConfirmNoMergeDialog from './ConfirmNoMergeDialog'
 import { AppName, jtString } from '@standardnotes/features'
 import { c } from 'ttag'
+import { missingSyncServerMessage } from '@/OfflineBuild/OfflineBuildUI'
 
 type Props = {
   setMenuPane: (pane: AccountMenuPane) => void
@@ -44,6 +45,11 @@ const ConfirmPassword: FunctionComponent<Props> = ({ setMenuPane, email, passwor
   const [showNoMergeConfirmation, setShowNoMergeConfirmation] = useState(false)
 
   const register = useCallback(() => {
+    const missingServer = missingSyncServerMessage(application.accountMenuController.server)
+    if (missingServer) {
+      setError(missingServer)
+      return
+    }
     setIsRegistering(true)
     application
       .register(email, password, hvmToken, isEphemeral, shouldMergeLocal)

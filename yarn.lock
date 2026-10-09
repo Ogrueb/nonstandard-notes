@@ -10327,7 +10327,6 @@ __metadata:
     react-native-privacy-snapshot: "standardnotes/react-native-privacy-snapshot#653e904c90fc6f2b578da59138f2bfe5d7f942fe"
     react-native-safe-area-context: ^5.5.1
     react-native-share: ^12.0.9
-    react-native-store-review: ^0.4.3
     react-native-version-info: ^1.1.1
     react-native-webview: 13.13.5
     ttag: ^1.8.12
@@ -27829,13 +27828,6 @@ __metadata:
   version: 12.0.9
   resolution: "react-native-share@npm:12.0.9"
   checksum: 837e7162d3e9b44bb225029d08abebc9b064c4dee54ebad5bbe017fba5c9f1be02451dd87d96f937d79bfe2b2e6424cb638ec469cdafb33b4a7d4ef069bfa60a
-  languageName: node
-  linkType: hard
-
-"react-native-store-review@npm:^0.4.3":
-  version: 0.4.3
-  resolution: "react-native-store-review@npm:0.4.3"
-  checksum: e889a922ccc5a055748430b6c7872d191fbffa61126c075fd5b861e450e6e1ad7ebf2248bc92884cefd3f58dbd0fa07b36ea2ea547f3b7b2c594a0fbe9ab18d5
   languageName: node
   linkType: hard
 

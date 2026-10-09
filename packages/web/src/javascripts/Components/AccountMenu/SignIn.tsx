@@ -9,6 +9,7 @@ import DecoratedPasswordInput from '@/Components/Input/DecoratedPasswordInput'
 import Icon from '@/Components/Icon/Icon'
 import IconButton from '@/Components/Button/IconButton'
 import AdvancedOptions from './AdvancedOptions'
+import { missingSyncServerMessage } from '@/OfflineBuild/OfflineBuildUI'
 import HorizontalSeparator from '../Shared/HorizontalSeparator'
 import { getErrorFromErrorResponse, isErrorResponse, getCaptchaHeader, Result } from '@standardnotes/snjs'
 import { useApplication } from '../ApplicationProvider'
@@ -104,6 +105,11 @@ const SignInPane: FunctionComponent<Props> = ({ setMenuPane }) => {
   }, [shouldMergeLocal])
 
   const signIn = useCallback(() => {
+    const missingServer = missingSyncServerMessage(application.accountMenuController.server)
+    if (missingServer) {
+      setError(missingServer)
+      return
+    }
     setIsSigningIn(true)
     emailInputRef?.current?.blur()
     passwordInputRef?.current?.blur()
@@ -133,6 +139,11 @@ const SignInPane: FunctionComponent<Props> = ({ setMenuPane }) => {
   }, [application, email, hvmToken, isEphemeral, isStrictSignin, password, shouldMergeLocal])
 
   const recoverySignIn = useCallback(() => {
+    const missingServer = missingSyncServerMessage(application.accountMenuController.server)
+    if (missingServer) {
+      setError(missingServer)
+      return
+    }
     setIsSigningIn(true)
     emailInputRef?.current?.blur()
     passwordInputRef?.current?.blur()
