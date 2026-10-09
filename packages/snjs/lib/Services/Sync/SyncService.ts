@@ -115,6 +115,11 @@ const ContentTypeLocalLoadPriorty = [
   ContentType.TYPES.UserPrefs,
   ContentType.TYPES.Component,
   ContentType.TYPES.Theme,
+  /**
+   * Offline build: load the offline entitlement repo with the first batch so cached
+   * offline roles apply at launch instead of after the full local database load.
+   */
+  ContentType.TYPES.ExtensionRepo,
 ]
 
 /**

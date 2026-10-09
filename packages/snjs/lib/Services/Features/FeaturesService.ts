@@ -115,6 +115,15 @@ export class FeaturesService
           } else {
             void this.migrateFeatureRepoToOfflineEntitlements(items)
           }
+
+          /**
+           * Offline build: an offline entitlement repo just became available (usually from the
+           * local database at launch). Tell open editors to re-check feature status now rather
+           * than waiting for LocalDataLoaded.
+           */
+          if (items.some((repo) => repo.migratedToOfflineEntitlements)) {
+            void this.notifyEvent(FeaturesEvent.FeaturesAvailabilityChanged)
+          }
         }
       }),
     )
