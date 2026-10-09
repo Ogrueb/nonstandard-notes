@@ -88,7 +88,12 @@ const OfflineSubscription: FunctionComponent<Props> = ({ application, onSuccess 
   }
 
   const handleRemoveOfflineKey = async () => {
-    await application.features.deleteOfflineFeatureRepo()
+    /** Offline build: on mobile this also clears the device copy of the activation */
+    if (application.offlineActivationBackup) {
+      await application.offlineActivationBackup.removeActivation()
+    } else {
+      await application.features.deleteOfflineFeatureRepo()
+    }
 
     setIsSuccessfullyActivated(false)
     setHasUserPreviouslyStoredCode(false)

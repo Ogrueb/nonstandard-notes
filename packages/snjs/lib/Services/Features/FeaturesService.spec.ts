@@ -28,6 +28,7 @@ import { ItemManager } from '../Items'
 import { DiskStorageService } from '../Storage/DiskStorageService'
 import { SettingsClientInterface } from '../Settings/SettingsClientInterface'
 import { LoggerInterface } from '@standardnotes/utils'
+import { ClientDisplayableError } from '@standardnotes/responses'
 
 describe('FeaturesService', () => {
   let storageService: StorageServiceInterface
@@ -523,6 +524,61 @@ describe('FeaturesService', () => {
       const hasProUserRole = featureService.hasMinimumRole(RoleName.NAMES.ProUser)
 
       expect(hasProUserRole).toBe(true)
+    })
+  })
+
+  describe('offline build: bundled offline roles', () => {
+    const PROD_URL = 'https://api.standardnotes.com/v1/offline/features'
+
+    const makeRepo = (offlineFeaturesUrl: string) =>
+      ({
+        migratedToOfflineEntitlements: true,
+        content: { offlineFeaturesUrl, offlineKey: 'key', migratedToOfflineEntitlements: true },
+      }) as unknown as SNFeatureRepo
+
+    const codeFor = (featuresUrl: string) => {
+      crypto.base64Decode = jest
+        .fn()
+        .mockReturnValue(JSON.stringify({ featuresUrl, extensionKey: 'key', subscriptionId: 1 }))
+      return 'code'
+    }
+
+    beforeEach(() => {
+      apiService.downloadOfflineFeaturesFromRepo = jest.fn()
+    })
+
+    it('applies bundled roles when a first-party activation code is entered, without a download', async () => {
+      mutator.createItem = jest.fn().mockResolvedValue(makeRepo(PROD_URL))
+
+      const result = await featureService.setOfflineFeaturesCode(codeFor(PROD_URL))
+
+      expect(result).toBeUndefined()
+      expect(apiService.downloadOfflineFeaturesFromRepo).not.toHaveBeenCalled()
+      expect(storageService.setValue).toHaveBeenCalledWith(StorageKey.OfflineUserRoles, [
+        RoleName.NAMES.CoreUser,
+        RoleName.NAMES.ProUser,
+      ])
+    })
+
+    it('rejects an activation code for a non-first-party features URL', async () => {
+      const otherUrl = 'https://example.com/v1/offline/features'
+      mutator.createItem = jest.fn().mockResolvedValue(makeRepo(otherUrl))
+
+      const result = await featureService.setOfflineFeaturesCode(codeFor(otherUrl))
+
+      expect(result).toBeInstanceOf(ClientDisplayableError)
+      expect(storageService.setValue).not.toHaveBeenCalledWith(StorageKey.OfflineUserRoles, expect.anything())
+      expect(apiService.downloadOfflineFeaturesFromRepo).not.toHaveBeenCalled()
+    })
+
+    it('applies bundled roles for a repo from sync or import when none are cached', async () => {
+      await featureService.migrateFeatureRepoToOfflineEntitlements([makeRepo(PROD_URL)])
+
+      expect(apiService.downloadOfflineFeaturesFromRepo).not.toHaveBeenCalled()
+      expect(storageService.setValue).toHaveBeenCalledWith(StorageKey.OfflineUserRoles, [
+        RoleName.NAMES.CoreUser,
+        RoleName.NAMES.ProUser,
+      ])
     })
   })
 })

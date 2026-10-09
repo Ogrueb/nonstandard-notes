@@ -36,6 +36,10 @@ export interface MobileDeviceInterface extends DeviceInterface {
   getColorScheme(): Promise<'light' | 'dark' | null | undefined>
   purchaseSubscriptionIAP(plan: AppleIAPProductId): Promise<AppleIAPReceipt | undefined>
   authenticateWithU2F(authenticationOptionsJSONString: string): Promise<Record<string, unknown> | null>
+  /** Offline build: device copy of the offline activation code, kept outside the workspace. */
+  getOfflineActivationBackup(): Promise<string | undefined>
+  setOfflineActivationBackup(code: string): Promise<boolean>
+  clearOfflineActivationBackup(): Promise<boolean>
   notifyApplicationEvent(event: ApplicationEvent): void
 
   canDisplayNotifications(): Promise<boolean>

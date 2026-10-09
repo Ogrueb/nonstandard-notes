@@ -62,6 +62,12 @@ export class FeaturesService
 
   private readonly PROD_OFFLINE_FEATURES_URL = 'https://api.standardnotes.com/v1/offline/features'
 
+  /**
+   * Offline build: roles applied for a first-party offline activation instead of downloading
+   * them from PROD_OFFLINE_FEATURES_URL. Pro covers every client-side feature.
+   */
+  private readonly BUNDLED_OFFLINE_ROLES = [RoleName.NAMES.CoreUser, RoleName.NAMES.ProUser]
+
   constructor(
     private storage: StorageServiceInterface,
     private items: ItemManagerInterface,
@@ -173,10 +179,11 @@ export class FeaturesService
             break
           }
           case ApplicationStage.FullSyncCompleted_13: {
-            if (!this.hasFirstPartyOnlineSubscription()) {
+            /** Offline build: apply bundled roles if a repo synced in and none are cached yet. */
+            if (!this.hasFirstPartyOnlineSubscription() && !this.hasCachedOfflineRoles()) {
               const offlineRepo = this.getOfflineRepo()
               if (offlineRepo) {
-                void this.downloadOfflineRoles(offlineRepo)
+                void this.applyBundledOfflineRoles(offlineRepo)
               }
             }
             break
@@ -256,7 +263,7 @@ export class FeaturesService
 
       void this.sync.sync()
 
-      return this.downloadOfflineRoles(offlineRepo)
+      return this.applyBundledOfflineRoles(offlineRepo)
     } catch (err) {
       return new ClientDisplayableError(`${API_MESSAGE_FAILED_OFFLINE_ACTIVATION}, ${JSON.stringify(err)}`)
     }
@@ -296,16 +303,31 @@ export class FeaturesService
     }
   }
 
-  private async downloadOfflineRoles(repo: SNFeatureRepo): Promise<SetOfflineFeaturesFunctionResponse> {
-    const result = await this.api.downloadOfflineFeaturesFromRepo({
-      repo,
-    })
-
-    if (result instanceof ClientDisplayableError) {
-      return result
+  /**
+   * Offline build: replaces the download from the repo's features URL. No network request is
+   * made. A first-party offline repo (official features URL or localhost, the same check as
+   * hasFirstPartyOfflineSubscription) gets the bundled roles; any other repo is rejected, as
+   * stock ApiService does for untrusted feature hosts.
+   */
+  private async applyBundledOfflineRoles(repo: SNFeatureRepo): Promise<SetOfflineFeaturesFunctionResponse> {
+    if (!this.isFirstPartyOfflineRepo(repo)) {
+      return new ClientDisplayableError(API_MESSAGE_FAILED_OFFLINE_ACTIVATION)
     }
 
-    this.setOfflineRoles(result.roles)
+    this.setOfflineRoles(this.BUNDLED_OFFLINE_ROLES)
+  }
+
+  private isFirstPartyOfflineRepo(repo: SNFeatureRepo): boolean {
+    const url = repo.content.offlineFeaturesUrl
+    if (!url) {
+      return false
+    }
+
+    try {
+      return url === this.PROD_OFFLINE_FEATURES_URL || new URL(url).hostname === 'localhost'
+    } catch {
+      return false
+    }
   }
 
   public async migrateFeatureRepoToUserSetting(featureRepos: SNFeatureRepo[] = []): Promise<void> {
@@ -318,12 +340,23 @@ export class FeaturesService
     const updatedRepos = await usecase.execute({ featureRepos, prodOfflineFeaturesUrl: this.PROD_OFFLINE_FEATURES_URL })
 
     if (updatedRepos.length > 0) {
-      await this.downloadOfflineRoles(updatedRepos[0])
+      await this.applyBundledOfflineRoles(updatedRepos[0])
     }
 
     for (const repo of featureRepos) {
-      await this.downloadOfflineRoles(repo)
+      /**
+       * Offline build: an already-migrated repo with cached roles needs nothing more. Otherwise
+       * (fresh install: repo from sync or backup import) the bundled roles are applied.
+       */
+      if (repo.migratedToOfflineEntitlements && this.hasCachedOfflineRoles()) {
+        continue
+      }
+      await this.applyBundledOfflineRoles(repo)
     }
+  }
+
+  private hasCachedOfflineRoles(): boolean {
+    return this.offlineRoles.length > 0
   }
 
   hasPaidAnyPartyOnlineOrOfflineSubscription(): boolean {
@@ -336,12 +369,7 @@ export class FeaturesService
 
   public hasFirstPartyOfflineSubscription(): boolean {
     const offlineRepo = this.getOfflineRepo()
-    if (!offlineRepo || !offlineRepo.content.offlineFeaturesUrl) {
-      return false
-    }
-
-    const hasFirstPartyOfflineSubscription = offlineRepo.content.offlineFeaturesUrl === this.PROD_OFFLINE_FEATURES_URL
-    return hasFirstPartyOfflineSubscription || new URL(offlineRepo.content.offlineFeaturesUrl).hostname === 'localhost'
+    return offlineRepo != undefined && this.isFirstPartyOfflineRepo(offlineRepo)
   }
 
   async updateOnlineRolesWithNewValues(roles: string[]): Promise<void> {

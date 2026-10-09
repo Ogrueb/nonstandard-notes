@@ -85,6 +85,7 @@ import { removeFromArray } from '@standardnotes/utils'
 import { FileItemActionType } from '@/Components/AttachedFilesPopover/PopoverFileItemAction'
 import { RecentActionsState } from './Recents'
 import { CommandService } from '../Components/CommandPalette/CommandService'
+import { OfflineActivationBackup } from '@/OfflineActivationBackup/OfflineActivationBackup'
 
 export type WebEventObserver = (event: WebAppEvent, data?: unknown) => void
 
@@ -101,6 +102,9 @@ export class WebApplication extends SNApplication implements WebApplicationInter
 
   public devMode?: DevMode
   public recents = new RecentActionsState()
+
+  /** Offline build (mobile only): device copy of the offline activation */
+  public offlineActivationBackup?: OfflineActivationBackup
 
   constructor(
     deviceInterface: WebOrDesktopDevice,
@@ -184,6 +188,8 @@ export class WebApplication extends SNApplication implements WebApplicationInter
       console.log = (...args) => {
         this.mobileDevice.consoleLog(...args)
       }
+
+      this.createOfflineActivationBackup()
     }
 
     if (!isDesktopApplication()) {
@@ -191,6 +197,27 @@ export class WebApplication extends SNApplication implements WebApplicationInter
         this.notifyWebEvent(event)
       })
     }
+  }
+
+  /** Offline build: keeps the offline activation across workspace clears (see OfflineActivationBackup) */
+  private createOfflineActivationBackup(): void {
+    const mobileDevice = this.mobileDevice
+    const backup = new OfflineActivationBackup({
+      getRepos: () => this.items.getItems(ContentType.TYPES.ExtensionRepo),
+      addRepoObserver: (callback) => this.items.addObserver(ContentType.TYPES.ExtensionRepo, callback),
+      setOfflineFeaturesCode: (code) => this.features.setOfflineFeaturesCode(code),
+      deleteOfflineFeatureRepo: () => this.features.deleteOfflineFeatureRepo(),
+      isSignedIn: () => this.sessions.isSignedIn(),
+      store: {
+        get: () => mobileDevice.getOfflineActivationBackup(),
+        set: (code) => mobileDevice.setOfflineActivationBackup(code),
+        clear: () => mobileDevice.clearOfflineActivationBackup(),
+      },
+      log: (message) => mobileDevice.consoleLog(message),
+    })
+    this.offlineActivationBackup = backup
+    this.disposers.push(this.addEventObserver((event) => backup.handleApplicationEvent(event)))
+    this.disposers.push(() => backup.deinit())
   }
 
   override deinit(mode: DeinitMode, source: DeinitSource): void {

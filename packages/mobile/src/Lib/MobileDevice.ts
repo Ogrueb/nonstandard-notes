@@ -159,6 +159,34 @@ export class MobileDevice implements MobileDeviceInterface {
     return Promise.resolve(undefined)
   }
 
+  /** Offline build: device copy of the offline activation, kept outside the workspace (Keychain.ts). */
+  async getOfflineActivationBackup(): Promise<string | undefined> {
+    try {
+      return await Keychain.getOfflineActivation()
+    } catch (error) {
+      this.consoleLog(`getOfflineActivationBackup error: ${(error as Error).message}`)
+      return undefined
+    }
+  }
+
+  async setOfflineActivationBackup(code: string): Promise<boolean> {
+    try {
+      return await Keychain.setOfflineActivation(code)
+    } catch (error) {
+      this.consoleLog(`setOfflineActivationBackup error: ${(error as Error).message}`)
+      return false
+    }
+  }
+
+  async clearOfflineActivationBackup(): Promise<boolean> {
+    try {
+      return await Keychain.clearOfflineActivation()
+    } catch (error) {
+      this.consoleLog(`clearOfflineActivationBackup error: ${(error as Error).message}`)
+      return false
+    }
+  }
+
   private findOrCreateDatabase(identifier: ApplicationIdentifier): Database {
     const existing = this.databases.get(identifier)
     if (existing) {
