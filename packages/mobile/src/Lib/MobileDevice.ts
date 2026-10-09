@@ -49,7 +49,6 @@ import { hide, show } from 'react-native-privacy-snapshot'
 import Share from 'react-native-share'
 import { AndroidBackHandlerService } from '../AndroidBackHandlerService'
 import { AppStateObserverService } from '../AppStateObserverService'
-import { PurchaseManager } from '../PurchaseManager'
 import { Database } from './Database/Database'
 import { isLegacyIdentifier } from './Database/LegacyIdentifier'
 import { LegacyKeyValueStore } from './Database/LegacyKeyValueStore'
@@ -155,8 +154,9 @@ export class MobileDevice implements MobileDeviceInterface {
     }
   }
 
-  purchaseSubscriptionIAP(plan: AppleIAPProductId): Promise<AppleIAPReceipt | undefined> {
-    return PurchaseManager.getInstance().purchase(plan)
+  /** Offline build: in-app purchases removed (react-native-iap). Only iOS ever called this. */
+  purchaseSubscriptionIAP(_plan: AppleIAPProductId): Promise<AppleIAPReceipt | undefined> {
+    return Promise.resolve(undefined)
   }
 
   private findOrCreateDatabase(identifier: ApplicationIdentifier): Database {

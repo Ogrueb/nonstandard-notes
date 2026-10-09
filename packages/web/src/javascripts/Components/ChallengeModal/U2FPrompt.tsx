@@ -33,7 +33,7 @@ const U2FPrompt = ({ application, onValueChange, prompt, buttonRef, contextData 
     [onValueChange, prompt],
   )
 
-  if (!application.isFullU2FClient && !isAndroid()) {
+  if (!application.isFullU2FClient) {
     const apiHost = application.getHost.execute().getValue() || window.defaultSyncServer
 
     if (application.environment === Environment.Clipper && IS_FIREFOX) {
