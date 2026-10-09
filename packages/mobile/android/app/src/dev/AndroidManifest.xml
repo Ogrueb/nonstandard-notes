@@ -2,6 +2,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     package="com.standardnotes">
-    <application tools:replace="android:icon,label" android:icon="@drawable/icon" android:label="SN Dev" tools:node="merge">
+    <application tools:replace="android:label" android:label="NSN Dev" tools:node="merge">
     </application>
 </manifest>

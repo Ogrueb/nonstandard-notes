@@ -36,3 +36,10 @@ packages/snjs/dist
 !.yarn/sdks
 !.yarn/versions
 !.yarn/cache
+
+# Nonstandard Notes: build outputs and signing material (never commit)
+*.apk
+*.aab
+*.jks
+keystore.txt
+signing.env

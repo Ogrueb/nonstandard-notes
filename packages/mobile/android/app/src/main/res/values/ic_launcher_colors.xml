@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Launcher icon colours (drawable/ic_launcher_background.xml, ic_launcher_foreground.xml); branding/build_icons.py also reads them for the web favicons -->
+    <color name="ic_launcher_header">#3366CC</color>
+    <color name="ic_launcher_text">#7094DB</color>
+    <color name="ic_launcher_card">#FFFFFF</color>
+    <color name="ic_launcher_lines">#BFBFBF</color>
+    <color name="ic_launcher_lines_secondary">#DFDFDF</color>
+</resources>

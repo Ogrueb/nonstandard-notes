@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dev flavor: same launcher icon, different header and text colours (text: header lightened 30%) -->
+    <color name="ic_launcher_header">#669900</color>
+    <color name="ic_launcher_text">#94B84D</color>
+</resources>

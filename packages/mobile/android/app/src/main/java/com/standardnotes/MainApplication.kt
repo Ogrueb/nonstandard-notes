@@ -51,7 +51,7 @@ class MainApplication : Application(), ReactApplication {
 
         // Enable Remote debugging for WebViews
         val packageName = applicationContext.packageName
-        if (packageName == "com.standardnotes.dev") {
+        if (packageName == "io.github.ogrueb.nonstandardnotes.dev") {
             WebView.setWebContentsDebuggingEnabled(true)
         }
 

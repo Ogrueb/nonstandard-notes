@@ -83,7 +83,7 @@ android {
 
     namespace "com.standardnotes"
     defaultConfig {
-        applicationId "com.standardnotes"
+        applicationId "io.github.ogrueb.nonstandardnotes"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
 
