@@ -147,4 +147,41 @@ describe('GetSortedPayloadsByPriority', () => {
     expect(remainingPayloads[2].uuid).toBe(unprioritizedTagUuid)
     expect(remainingPayloads[3].uuid).toBe(unprioritizedNoteUuid)
   })
+
+  it('should load never-synced items (updated_at of 0) by created_at, newest first', () => {
+    payloads = [
+      {
+        content_type: ContentType.TYPES.Note,
+        uuid: 'synced-old',
+        updated_at: new Date(1000),
+        created_at: new Date(500),
+      } as FullyFormedPayloadInterface,
+      {
+        content_type: ContentType.TYPES.Note,
+        uuid: 'local-new',
+        updated_at: new Date(0),
+        created_at: new Date(3000),
+      } as FullyFormedPayloadInterface,
+      {
+        content_type: ContentType.TYPES.Note,
+        uuid: 'synced-new',
+        updated_at: new Date(2000),
+        created_at: new Date(100),
+      } as FullyFormedPayloadInterface,
+      {
+        content_type: ContentType.TYPES.Note,
+        uuid: 'local-old',
+        updated_at: new Date(0),
+        created_at: new Date(200),
+      } as FullyFormedPayloadInterface,
+    ]
+
+    const { remainingPayloads } = GetSortedPayloadsByPriority(payloads, {
+      contentTypePriority,
+      uuidPriority: [],
+      batchSize: 1000,
+    })
+
+    expect(remainingPayloads.map((p) => p.uuid)).toEqual(['local-new', 'synced-new', 'synced-old', 'local-old'])
+  })
 })

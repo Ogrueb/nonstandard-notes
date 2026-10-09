@@ -1,3 +1,4 @@
 import { TransferPayload } from '@standardnotes/models'
 
-export type DatabaseItemMetadata = Pick<TransferPayload, 'uuid' | 'updated_at' | 'content_type'>
+export type DatabaseItemMetadata = Pick<TransferPayload, 'uuid' | 'updated_at' | 'content_type'> &
+  Partial<Pick<TransferPayload, 'created_at'>>

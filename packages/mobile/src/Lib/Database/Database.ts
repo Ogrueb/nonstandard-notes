@@ -79,7 +79,13 @@ export class Database implements DatabaseInterface {
   async getLoadChunks(options: DatabaseLoadOptions): Promise<DatabaseKeysLoadChunkResponse> {
     let metadataItems = this.metadataStore.getAllMetadataItems()
 
-    if (metadataItems.length === 0) {
+    /**
+     * Offline build: metadata written by older versions lacks created_at, which the
+     * load sorter needs to put never-synced (newest) notes first. Rebuild it once.
+     */
+    const metadataNeedsCreatedAt = metadataItems.some((item) => item.created_at === undefined)
+
+    if (metadataItems.length === 0 || metadataNeedsCreatedAt) {
       const allEntries = await this.getAllEntries()
       metadataItems = this.metadataStore.runMigration(allEntries)
     }

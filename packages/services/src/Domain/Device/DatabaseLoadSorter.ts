@@ -4,6 +4,19 @@ import { DatabaseItemMetadata } from './DatabaseItemMetadata'
 import { DatabaseLoadOptions } from './DatabaseLoadOptions'
 
 /**
+ * Offline build: recency key used to load newer items first.
+ * updated_at is the server timestamp and stays at epoch 0 for items that have never
+ * been synced (local-only accounts, or notes created offline), which made the newest
+ * notes load last. created_at is set by the client when the item is created, so the
+ * later of the two ranks both synced and never-synced items by recency.
+ */
+function recencyOf(payload: DatabaseItemMetadata): number {
+  const updated = new Date(payload.updated_at).getTime() || 0
+  const created = payload.created_at ? new Date(payload.created_at).getTime() || 0 : 0
+  return Math.max(updated, created)
+}
+
+/**
  * Sorts payloads according by most recently modified first, according to the priority,
  * whereby the earlier a content_type appears in the priorityList,
  * the earlier it will appear in the resulting sorted array.
@@ -13,7 +26,7 @@ function SortPayloadsByRecentAndContentPriority<T extends DatabaseItemMetadata =
   contentTypePriorityList: string[],
 ): T[] {
   return payloads.sort((a, b) => {
-    const dateResult = new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+    const dateResult = recencyOf(b) - recencyOf(a)
 
     let aPriority = 0
     let bPriority = 0
@@ -51,7 +64,7 @@ function SortPayloadsByRecentAndUuidPriority<T extends DatabaseItemMetadata = Da
   uuidPriorityList: string[],
 ): T[] {
   return payloads.sort((a, b) => {
-    const dateResult = new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+    const dateResult = recencyOf(b) - recencyOf(a)
 
     let aPriority = 0
     let bPriority = 0

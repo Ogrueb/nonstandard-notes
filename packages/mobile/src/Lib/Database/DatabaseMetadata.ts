@@ -15,9 +15,15 @@ export class DatabaseMetadata {
   setMetadataForPayloads(payloads: TransferPayload[]) {
     const metadataItems = []
     for (const payload of payloads) {
-      const { uuid, content_type, updated_at } = payload
+      const { uuid, content_type, updated_at, created_at } = payload
       const key = this.keyForUuid(uuid)
-      const metadata: DatabaseItemMetadata = { uuid, content_type, updated_at }
+      const metadata: DatabaseItemMetadata = {
+        uuid,
+        content_type,
+        updated_at,
+        /** Always defined, so Database.getLoadChunks does not rebuild metadata on every launch */
+        created_at: created_at ?? new Date(0),
+      }
       this.flashStorage.set(key, metadata)
       metadataItems.push(metadata)
     }
