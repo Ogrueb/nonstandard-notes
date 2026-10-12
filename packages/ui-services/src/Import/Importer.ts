@@ -16,8 +16,10 @@ import { assertImportFileWithinSizeLimit, MaxImportFileSizeBytes } from './Impor
 import { readFileAsText } from './Utils'
 import {
   DecryptedItemInterface,
+  DecryptedItemMutator,
   FileItem,
   ItemContent,
+  MutationType,
   NoteContent,
   SNNote,
   SNTag,
@@ -148,7 +150,25 @@ export class Importer {
       },
     )
 
-    return await this.mutator.insertItem(note)
+    const insertedNote = await this.mutator.insertItem<SNNote>(note)
+
+    return await this.restoreSourceModifiedDate(insertedNote, updatedAt)
+  }
+
+  /**
+   * Inserting a note stamps its "Date modified" (userModifiedDate) with the
+   * time of the import. Set it back to the date the converter read from the
+   * source, without stamping it again, so imported notes sort by their own
+   * dates.
+   */
+  private async restoreSourceModifiedDate(note: SNNote, sourceModifiedDate: Date): Promise<SNNote> {
+    return await this.mutator.changeItem<DecryptedItemMutator, SNNote>(
+      note,
+      (mutator) => {
+        mutator.userModifiedDate = sourceModifiedDate
+      },
+      MutationType.NoUpdateUserTimestamps,
+    )
   }
 
   insertTag: InsertTagFn = async ({ createdAt, updatedAt, title, references }) => {
